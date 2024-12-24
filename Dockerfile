@@ -1,6 +1,13 @@
 # Stage 1: Build Stage
 FROM node:18-alpine AS builder
 
+# Install necessary packages for Chrome and Selenium
+RUN apk add --no-cache chromium nss freetype freetype-dev harfbuzz ca-certificates ttf-freefont
+
+# Set environment variables for Chrome
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
+ENV CHROME_BIN=/usr/bin/chromium-browser
+
 # Set working directory
 WORKDIR /usr/src/app
 
@@ -16,6 +23,13 @@ RUN npm run build
 
 # Stage 2: Production Stage
 FROM node:18-alpine
+
+# Install necessary packages for Chrome and Selenium
+RUN apk add --no-cache chromium nss freetype freetype-dev harfbuzz ca-certificates ttf-freefont
+
+# Set environment variables for Chrome
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
+ENV CHROME_BIN=/usr/bin/chromium-browser
 
 # Set working directory
 WORKDIR /usr/src/app

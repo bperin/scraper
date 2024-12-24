@@ -1,43 +1,46 @@
 // src/scraper.ts
-import puppeteer from "puppeteer";
+import { Builder, By, until, WebDriver } from "selenium-webdriver";
+import chrome from "selenium-webdriver/chrome";
 
-interface ScrapedData {
-    title: string;
-    properties: Property[];
-}
+export async function scrape(url: string): Promise<string> {
+    // Configure Chrome options for headless mode
+    const options = new chrome.Options();
+    options.addArguments("--headless"); // Run in headless mode
+    options.addArguments("--no-sandbox"); // Bypass OS security model
+    options.addArguments("--disable-dev-shm-usage"); // Overcome limited resource problems
+    options.addArguments("--enable-javascript"); // Enable JavaScript execution
 
-interface Property {
-    name: string;
-    price: string;
-    url: string;
-}
-
-export async function scrape(url: string): Promise<ScrapedData> {
-    const browser = await puppeteer.launch({
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    const page = await browser.newPage();
+    // Initialize WebDriver
+    const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
 
     try {
-        await page.goto(url, { waitUntil: "networkidle2" });
+        // Navigate to the URL
+        await driver.get(url);
 
-        // Example: Extract the page title
-        const title = await page.title();
+        // Wait until the page is fully loaded
+        await driver.wait(until.elementLocated(By.tagName("body")), 10000);
 
-        // Example: Extract property details
-        const properties: Property[] = await page.$$eval(".property-card", (cards) =>
-            cards.map((card) => ({
-                name: (card.querySelector(".property-name") as HTMLElement)?.innerText || "N/A",
-                price: (card.querySelector(".property-price") as HTMLElement)?.innerText || "N/A",
-                url: (card.querySelector("a") as HTMLAnchorElement)?.href || "#",
-            }))
-        );
+        // Extract all visible text from the body
+        const textContent: string = await driver.executeScript(() => {
+            // Remove script and style elements
+            const elementsToRemove = document.querySelectorAll("script, style, noscript");
+            elementsToRemove.forEach((el) => el.remove());
 
-        return { title, properties };
+            // Get the innerText of the body
+            let text = document.body.innerText;
+
+            // Basic text cleaning: trim and replace multiple spaces with single space
+            text = text.trim().replace(/\s+/g, " ");
+
+            return text;
+        });
+
+        return textContent;
     } catch (error) {
         console.error("Scraping error:", error);
         throw error;
     } finally {
-        await browser.close();
+        // Quit the driver
+        await driver.quit();
     }
 }
