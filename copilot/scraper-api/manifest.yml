@@ -12,7 +12,12 @@ http:
   # To match all requests you can use the "/" path.
   path: "/"
   # You can specify a custom health check path. The default is "/".
-  healthcheck: "/health"
+  # healthcheck: '/'
+  hosted_zone: example.com # Replace with your actual hosted zone
+  aliases:
+    - develop.example.com
+    - staging.example.com
+    - www.example.com
 
 # Configuration for your containers and service.
 image:
