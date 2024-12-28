@@ -13,7 +13,6 @@ http:
   path: "/"
   # You can specify a custom health check path. The default is "/".
   healthcheck: "/health"
-  # Add certificates and alias at service level
   public:
     certificates:
       - arn:aws:acm:us-east-1:422220778159:certificate/d1259492-082d-4ad9-b641-b754caef46b5
@@ -41,10 +40,8 @@ network:
 #variables:                    # Pass environment variables as key value pairs.
 #  LOG_LEVEL: info
 
-secrets:
-  SCRAPER_API_KEY: SCRAPER_API_KEY
-#secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
-#  GITHUB_TOKEN: GITHUB_TOKEN  # The key is the name of the environment variable, the value is the name of the SSM parameter.
+# secrets:
+#   SCRAPER_API_KEY: SCRAPER_API_KEY
 
 # You can override any of the values defined above by environment.
 #environments:
@@ -53,7 +50,6 @@ secrets:
 #    deployment:            # The deployment strategy for the "test" environment.
 #       rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.
 
-# Environment-specific configurations
 environments:
   production:
     count: 2
@@ -63,3 +59,18 @@ environments:
       alias:
         - name: "scraper.amastay.ai"
           hosted_zone: Z09051732Y0SGEMJ22C94
+
+  staging:
+    count: 1
+    http:
+      alias:
+        - name: "staging-scraper.amastay.ai"
+          hosted_zone: Z09051732Y0SGEMJ22C94
+
+  develop:
+    count: 1
+    http:
+      alias:
+        - name: "develop-scraper.amastay.ai"
+          hosted_zone: Z09051732Y0SGEMJ22C94
+#

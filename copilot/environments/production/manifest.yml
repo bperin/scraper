@@ -16,9 +16,6 @@ http:
   public:
     certificates:
       - arn:aws:acm:us-east-1:422220778159:certificate/d1259492-082d-4ad9-b641-b754caef46b5
-  alias:
-    - name: "scraper.amastay.ai"
-      hosted_zone: Z09051732Y0SGEMJ22C94
 
 # Configure observability for your environment resources.
 observability:

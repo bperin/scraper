@@ -1,0 +1,11 @@
+# The manifest for the "develop" environment.
+name: develop
+type: Environment
+
+http:
+  public:
+    certificates:
+      - arn:aws:acm:us-east-1:422220778159:certificate/d1259492-082d-4ad9-b641-b754caef46b5
+
+observability:
+  container_insights: false

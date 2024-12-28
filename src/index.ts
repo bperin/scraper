@@ -8,7 +8,7 @@ import compression from "compression";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5002;
 const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY || "";
 
 // Apply compression middleware
