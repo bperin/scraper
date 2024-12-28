@@ -73,4 +73,3 @@ environments:
       alias:
         - name: "develop-scraper.amastay.ai"
           hosted_zone: Z09051732Y0SGEMJ22C94
-#
