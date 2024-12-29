@@ -6,6 +6,7 @@ interface ScrapedData {
     main_text: string;
     reviews?: string[];
     amenities?: string[];
+    photos?: string[];
 }
 
 export async function getMainText(url: string): Promise<string> {
@@ -112,15 +113,56 @@ export async function getAmenities(url: string): Promise<string[]> {
     }
 }
 
+export async function getPhotos(url: string): Promise<string[]> {
+    const options = new chrome.Options();
+    options.addArguments("--headless");
+    options.addArguments("--no-sandbox");
+    options.addArguments("--disable-dev-shm-usage");
+    options.addArguments("--enable-javascript");
+
+    const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+
+    try {
+        // Append modal parameter to URL
+        const modalUrl = `${url}?modal=PHOTO_TOUR_SCROLLABLE`;
+        await driver.get(modalUrl);
+        driver.sleep(2000);
+
+        // Wait for photos to load in modal
+        await driver.wait(until.elementLocated(By.css("picture source[srcset]")), 10000);
+        await driver.sleep(1000);
+
+        // Get all source elements and extract original image URLs
+        const sourceElements = await driver.findElements(By.css("picture source[srcset]"));
+        const photoUrls = await Promise.all(
+            sourceElements.map(async (source) => {
+                const srcset = await source.getAttribute("srcset");
+                // Extract the original JPEG URL from srcset
+                const match = srcset.match(/https:\/\/.*?\.jpeg/);
+                return match ? match[0].split("?")[0] : null; // Get base URL without parameters
+            })
+        );
+
+        return photoUrls.filter((url): url is string => !!url); // Filter out nulls and ensure string type
+    } catch (error) {
+        console.error("Photo scraping error:", error);
+        throw error;
+    } finally {
+        await driver.quit();
+    }
+}
+
 export async function scrape(url: string): Promise<ScrapedData> {
     const mainText = await getMainText(url);
     let reviews: string[] = [];
     let amenities: string[] = [];
+    let photos: string[] = [];
 
     if (url.includes("airbnb.com/rooms/")) {
         reviews = await getReviews(url);
         amenities = await getAmenities(url);
+        photos = await getPhotos(url);
     }
 
-    return { main_text: mainText, reviews, amenities };
+    return { main_text: mainText, reviews, amenities, photos };
 }
