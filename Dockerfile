@@ -25,17 +25,23 @@ COPY src ./src
 # Build TypeScript code
 RUN npm run build
 
-# Production stage using selenium/standalone-chrome
-FROM --platform=linux/arm64 selenium/standalone-chrome:latest
-
-# Set up Node.js
-RUN sudo apt-get update &&
-    sudo apt-get install -y curl &&
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - &&
-    sudo apt-get install -y nodejs &&
-    sudo npm install -g npm@latest
+# Production stage
+FROM --platform=linux/arm64 node:18-bullseye-slim
 
 WORKDIR /app
+
+# Install Chrome and dependencies
+RUN apt-get update && apt-get install -y \
+    chromium \
+    chromium-driver \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables for Chrome
+ENV CHROME_BIN=/usr/bin/chromium \
+    CHROME_PATH=/usr/lib/chromium/ \
+    CHROME_FLAGS="--headless --no-sandbox --disable-gpu --disable-dev-shm-usage" \
+    PORT=3100
 
 # Copy package files and install production dependencies
 COPY package*.json ./
@@ -44,12 +50,14 @@ RUN npm ci --production
 # Copy built files from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Set environment variables for Chrome
-ENV SE_NODE_MAX_SESSIONS=10 \
-    SE_NODE_OVERRIDE_MAX_SESSIONS=true \
-    SE_NODE_SESSION_TIMEOUT=300 \
-    SE_START_XVFB=false \
-    CHROME_FLAGS="--headless --no-sandbox --disable-gpu --disable-dev-shm-usage"
+# Create a non-root user
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -G audio,video appuser && \
+    mkdir -p /home/appuser && \
+    chown -R appuser:appuser /home/appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 3100
 
