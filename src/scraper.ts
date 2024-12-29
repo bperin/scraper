@@ -123,27 +123,40 @@ export async function getPhotos(url: string): Promise<string[]> {
     const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
 
     try {
-        // Append modal parameter to URL
         const modalUrl = `${url}?modal=PHOTO_TOUR_SCROLLABLE`;
         await driver.get(modalUrl);
-        driver.sleep(2000);
+        await driver.sleep(2000);
 
         // Wait for photos to load in modal
         await driver.wait(until.elementLocated(By.css("picture source[srcset]")), 10000);
         await driver.sleep(1000);
+
+        // Scroll to load all photos
+        let previousHeight = 0;
+        let currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number;
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        while (previousHeight !== currentHeight && attempts < maxAttempts) {
+            previousHeight = currentHeight;
+            await driver.executeScript("window.scrollTo(0, document.body.scrollHeight)");
+            await driver.sleep(2000);
+            currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number;
+            attempts++;
+        }
 
         // Get all source elements and extract original image URLs
         const sourceElements = await driver.findElements(By.css("picture source[srcset]"));
         const photoUrls = await Promise.all(
             sourceElements.map(async (source) => {
                 const srcset = await source.getAttribute("srcset");
-                // Extract the original JPEG URL from srcset
-                const match = srcset.match(/https:\/\/.*?\.jpeg/);
-                return match ? match[0].split("?")[0] : null; // Get base URL without parameters
+                // Match the full URL pattern including /prohost-api/Hosting-{id}/original/
+                const match = srcset.match(/https:\/\/.*?\/prohost-api\/Hosting-.*?\/original\/.*?\.jpeg/);
+                return match ? match[0] : null;
             })
         );
 
-        return photoUrls.filter((url): url is string => !!url); // Filter out nulls and ensure string type
+        return photoUrls.filter((url): url is string => !!url);
     } catch (error) {
         console.error("Photo scraping error:", error);
         throw error;
