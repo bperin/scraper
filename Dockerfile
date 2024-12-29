@@ -30,7 +30,7 @@ FROM --platform=linux/arm64 node:18-bullseye-slim
 
 WORKDIR /app
 
-# Install Chrome and dependencies
+# Install Chromium and ChromeDriver
 RUN apt-get update && apt-get install -y \
     chromium \
     chromium-driver \
@@ -39,7 +39,7 @@ RUN apt-get update && apt-get install -y \
 
 # Set environment variables for Chrome
 ENV CHROME_BIN=/usr/bin/chromium \
-    CHROME_PATH=/usr/lib/chromium/ \
+    CHROMEDRIVER_PATH=/usr/bin/chromedriver \
     CHROME_FLAGS="--headless --no-sandbox --disable-gpu --disable-dev-shm-usage" \
     PORT=3100
 

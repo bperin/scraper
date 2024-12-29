@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import { scrape } from "./scraper";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
-import chrome from "selenium-webdriver/chrome";
+import chrome, { ServiceBuilder } from "selenium-webdriver/chrome";
 import { Builder } from "selenium-webdriver";
 
 dotenv.config();
@@ -51,42 +51,35 @@ app.get("/scrape", async (req: Request, res: Response) => {
 });
 
 app.get("/health", async (req: Request, res: Response) => {
-    // Simple health check that always returns 200
-    res.status(200).json({
-        status: "healthy",
-        message: "Server is running",
-        timestamp: new Date().toISOString(),
-    });
-});
-
-// Move Chrome test to a different endpoint
-app.get("/health/chrome", async (req: Request, res: Response) => {
-    // Original health check with Chrome test
     try {
-        // Create a new browser instance to test Chrome connectivity
         const options = new chrome.Options();
-        options.addArguments(...(process.env.CHROME_FLAGS || "").split(" ").filter(Boolean));
-        const driver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+        const service = new ServiceBuilder(process.env.CHROMEDRIVER_PATH || "");
+
+        const driver = await new Builder().forBrowser("chrome").setChromeOptions(options).setChromeService(service).build();
+
+        const version = await driver.getCapabilities().then((caps) => caps.getBrowserVersion());
         await driver.quit();
 
         res.status(200).json({
             status: "healthy",
-            message: "All systems operational",
+            message: "Server is running",
             components: {
                 server: "up",
                 chrome: "up",
+                chromeVersion: version,
             },
             timestamp: new Date().toISOString(),
         });
     } catch (error) {
-        res.status(503).json({
-            status: "unhealthy",
-            message: "System check failed",
+        res.status(200).json({
+            // Still return 200 for ALB health check
+            status: "degraded",
+            message: "Server is running but Chrome is not available",
             components: {
                 server: "up",
                 chrome: "down",
             },
-            error: error,
+            error: error instanceof Error ? error.message : String(error),
             timestamp: new Date().toISOString(),
         });
     }

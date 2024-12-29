@@ -1,6 +1,6 @@
 // src/scraper.ts
-import { Builder, By, until, WebDriver } from "selenium-webdriver";
-import chrome from "selenium-webdriver/chrome";
+import { Builder, By, until } from "selenium-webdriver";
+import chrome, { ServiceBuilder } from "selenium-webdriver/chrome";
 
 interface ScrapedData {
     main_text: string;
@@ -9,14 +9,26 @@ interface ScrapedData {
     photos?: string[];
 }
 
-export async function getMainText(url: string): Promise<string> {
+// Create a function to get configured WebDriver
+async function getDriver() {
     const options = new chrome.Options();
-    options.addArguments("--headless");
-    options.addArguments("--no-sandbox");
-    options.addArguments("--disable-dev-shm-usage");
-    options.addArguments("--enable-javascript");
+    // Always add headless and other required flags
+    options.addArguments(
+        "--headless=new", // Use new headless mode
+        "--no-sandbox",
+        "--disable-gpu",
+        "--disable-dev-shm-usage"
+    );
+    // Add any additional flags from env
+    options.addArguments(...(process.env.CHROME_FLAGS || "").split(" ").filter(Boolean));
 
-    const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+    const service = new ServiceBuilder(process.env.CHROMEDRIVER_PATH || "");
+
+    return new Builder().forBrowser("chrome").setChromeOptions(options).setChromeService(service).build();
+}
+
+export async function getMainText(url: string): Promise<string> {
+    const driver = await getDriver();
 
     try {
         await driver.get(url);
@@ -46,19 +58,11 @@ export async function getMainText(url: string): Promise<string> {
     } catch (error) {
         console.error("Main text scraping error:", error);
         throw error;
-    } finally {
-        await driver.quit();
     }
 }
 
 export async function getReviews(url: string): Promise<string[]> {
-    const options = new chrome.Options();
-    options.addArguments("--headless");
-    options.addArguments("--no-sandbox");
-    options.addArguments("--disable-dev-shm-usage");
-    options.addArguments("--enable-javascript");
-
-    const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+    const driver = await getDriver();
 
     try {
         await driver.get(`${url}/reviews`);
@@ -84,19 +88,11 @@ export async function getReviews(url: string): Promise<string[]> {
     } catch (error) {
         console.error("Reviews scraping error:", error);
         throw error;
-    } finally {
-        await driver.quit();
     }
 }
 
 export async function getAmenities(url: string): Promise<string[]> {
-    const options = new chrome.Options();
-    options.addArguments("--headless");
-    options.addArguments("--no-sandbox");
-    options.addArguments("--disable-dev-shm-usage");
-    options.addArguments("--enable-javascript");
-
-    const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+    const driver = await getDriver();
 
     try {
         await driver.get(`${url}/amenities`);
@@ -108,19 +104,11 @@ export async function getAmenities(url: string): Promise<string[]> {
     } catch (error) {
         console.error("Amenities scraping error:", error);
         throw error;
-    } finally {
-        await driver.quit();
     }
 }
 
 export async function getPhotos(url: string): Promise<string[]> {
-    const options = new chrome.Options();
-    options.addArguments("--headless");
-    options.addArguments("--no-sandbox");
-    options.addArguments("--disable-dev-shm-usage");
-    options.addArguments("--enable-javascript");
-
-    const driver: WebDriver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+    const driver = await getDriver();
 
     try {
         const modalUrl = `${url}?modal=PHOTO_TOUR_SCROLLABLE`;
@@ -160,12 +148,11 @@ export async function getPhotos(url: string): Promise<string[]> {
     } catch (error) {
         console.error("Photo scraping error:", error);
         throw error;
-    } finally {
-        await driver.quit();
     }
 }
 
 export async function scrape(url: string): Promise<ScrapedData> {
+    const driver = await getDriver();
     const mainText = await getMainText(url);
     let reviews: string[] = [];
     let amenities: string[] = [];
