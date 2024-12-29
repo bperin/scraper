@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5002;
-const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY || "";
+const SCRAPER_API_KEY = "WKkXEvIK2qyFMT0yAA9kqoStleFBEWvK";
 
 // Apply compression middleware
 app.use(compression());
@@ -42,7 +42,7 @@ app.get("/scrape", async (req: Request, res: Response) => {
 
     try {
         const data = await scrape(url);
-        res.json({ text: data });
+        res.json(data);
     } catch (error: any) {
         res.status(500).json({ error: "Scraping failed", details: error.message });
     }
