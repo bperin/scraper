@@ -4,11 +4,13 @@ import dotenv from "dotenv";
 import { scrape } from "./scraper";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
+import chrome from "selenium-webdriver/chrome";
+import { Builder } from "selenium-webdriver";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 3100;
 const SCRAPER_API_KEY = "WKkXEvIK2qyFMT0yAA9kqoStleFBEWvK";
 
 // Apply compression middleware
@@ -47,9 +49,47 @@ app.get("/scrape", async (req: Request, res: Response) => {
         res.status(500).json({ error: "Scraping failed", details: error.message });
     }
 });
+
 app.get("/health", async (req: Request, res: Response) => {
-    // Simplified health check endpoint to return a 200 and "ok" message
-    res.status(200).send("ok");
+    // Simple health check that always returns 200
+    res.status(200).json({
+        status: "healthy",
+        message: "Server is running",
+        timestamp: new Date().toISOString(),
+    });
+});
+
+// Move Chrome test to a different endpoint
+app.get("/health/chrome", async (req: Request, res: Response) => {
+    // Original health check with Chrome test
+    try {
+        // Create a new browser instance to test Chrome connectivity
+        const options = new chrome.Options();
+        options.addArguments(...(process.env.CHROME_FLAGS || "").split(" ").filter(Boolean));
+        const driver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+        await driver.quit();
+
+        res.status(200).json({
+            status: "healthy",
+            message: "All systems operational",
+            components: {
+                server: "up",
+                chrome: "up",
+            },
+            timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: "unhealthy",
+            message: "System check failed",
+            components: {
+                server: "up",
+                chrome: "down",
+            },
+            error: error,
+            timestamp: new Date().toISOString(),
+        });
+    }
 });
 
 app.listen(PORT, () => {
