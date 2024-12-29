@@ -65,29 +65,65 @@ export async function getReviews(url: string): Promise<string[]> {
     const driver = await getDriver();
 
     try {
+        // Go to the reviews page without modal
         await driver.get(`${url}/reviews`);
-        await driver.wait(until.elementLocated(By.css('div[role="dialog"][aria-modal="true"]')), 10000);
+
+        // Wait for reviews container with multiple possible selectors
+        await driver.wait(
+            until.elementLocated(
+                By.css(`
+            div[data-section-id="reviews-default"],
+            div[data-section-id="REVIEWS_DEFAULT"],
+            section[aria-label*="Reviews"],
+            div[role="dialog"] div[data-review-id]
+        `)
+            ),
+            10000
+        );
+
         await driver.sleep(2000);
 
-        // Scroll to load all reviews
+        // Scroll logic remains the same
         let previousHeight = 0;
-        let currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number;
+        let currentHeight = 0;
         let attempts = 0;
-        const maxAttempts = 20; // Increase max scroll attempts
+        const maxAttempts = 50;
 
-        while (previousHeight !== currentHeight && attempts < maxAttempts) {
-            previousHeight = currentHeight;
-            await driver.executeScript("window.scrollTo(0, document.body.scrollHeight)");
-            await driver.sleep(2000); // Increased wait time
-            currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number;
+        do {
+            previousHeight = await driver.executeScript("return document.documentElement.scrollHeight");
+            await driver.executeScript("window.scrollTo(0, document.documentElement.scrollHeight)");
+            await driver.sleep(1000);
+            currentHeight = await driver.executeScript("return document.documentElement.scrollHeight");
             attempts++;
-        }
+        } while (currentHeight > previousHeight && attempts < maxAttempts);
 
-        const reviewElements = await driver.findElements(By.css('div[data-review-id] div[style="line-height: 1.25rem;"]'));
-        return await Promise.all(reviewElements.map((el) => el.getText()));
+        // Try multiple selectors for review elements
+        const reviewElements = await driver.findElements(
+            By.css(`
+            div[data-review-id] div[style*="line-height"],
+            div[data-review-id] span[dir="ltr"],
+            div[itemprop="review"] div[itemprop="text"],
+            div[role="dialog"] div[data-review-id] span
+        `)
+        );
+
+        const reviews = await Promise.all(
+            reviewElements.map(async (el) => {
+                try {
+                    const text = await el.getText();
+                    return text.trim();
+                } catch (e) {
+                    return "";
+                }
+            })
+        );
+
+        return [...new Set(reviews.filter((review) => review.length > 0))];
     } catch (error) {
         console.error("Reviews scraping error:", error);
         throw error;
+    } finally {
+        await driver.quit();
     }
 }
 
