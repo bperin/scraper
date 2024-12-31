@@ -1,26 +1,30 @@
 {
-  "name": "web-scraper-selenium-ts",
-  "version": "1.0.0",
-  "description": "An isolated web scraper service built with TypeScript, Express, and Selenium.",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts"
-  },
-  "dependencies": {
-    "compression": "^1.7.5",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2",
-    "express-rate-limit": "^7.5.0",
-    "selenium-webdriver": "^4.10.0"
-  },
-  "devDependencies": {
-    "@types/compression": "^1.7.5",
-    "@types/express": "^4.17.17",
-    "@types/selenium-webdriver": "^4.1.27",
-    "nodemon": "^3.0.1",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.1.6"
-  }
+    "name": "web-scraper-selenium-ts",
+    "version": "1.0.0",
+    "description": "An isolated web scraper service built with TypeScript, Express, and Selenium.",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "dev": "nodemon src/index.ts",
+        "deploy:dev": "copilot svc deploy --name scraper --env develop --force",
+        "deploy:staging": "copilot svc deploy --name scraper --env staging --force",
+        "deploy:prod": "copilot svc deploy --name scraper --env production --force",
+        "deploy:all": "npm run deploy:dev && npm run deploy:staging && npm run deploy:prod"
+    },
+    "dependencies": {
+        "compression": "^1.7.5",
+        "dotenv": "^16.0.3",
+        "express": "^4.18.2",
+        "express-rate-limit": "^7.5.0",
+        "selenium-webdriver": "^4.10.0"
+    },
+    "devDependencies": {
+        "@types/compression": "^1.7.5",
+        "@types/express": "^4.17.17",
+        "@types/selenium-webdriver": "^4.1.27",
+        "nodemon": "^3.0.1",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.1.6"
+    }
 }

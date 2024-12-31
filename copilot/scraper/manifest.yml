@@ -15,10 +15,10 @@ http:
   healthcheck:
     path: "/health"
     healthy_threshold: 2
-    unhealthy_threshold: 10
-    interval: 30s
-    timeout: 20s
-    grace_period: 300s
+    unhealthy_threshold: 5
+    interval: 10s
+    timeout: 5s
+    grace_period: 60s
   public:
     certificates:
       - arn:aws:acm:us-east-1:422220778159:certificate/d1259492-082d-4ad9-b641-b754caef46b5
@@ -84,9 +84,9 @@ observability:
   container_health_check:
     command: ["CMD-SHELL", "curl -f http://localhost:3100/health || exit 1"]
     interval: 30s
-    timeout: 20s
-    start_period: 300s
-    retries: 10
+    timeout: 10s
+    start_period: 60s
+    retries: 3
 
 # Add deployment configuration for more graceful updates
 deployment:
