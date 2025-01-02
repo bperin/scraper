@@ -132,14 +132,26 @@ export async function getAmenities(url: string): Promise<string[]> {
 
     try {
         await driver.get(`${url}/amenities`);
-        await driver.wait(until.elementLocated(By.css('div[role="dialog"][aria-modal="true"]')), 10000);
-        await driver.sleep(1000);
+        await driver.sleep(5000);
 
-        const amenityElements = await driver.findElements(By.css('div[data-section-id="AMENITIES_DEFAULT"] div[role="listitem"]'));
-        return await Promise.all(amenityElements.map((el) => el.getText()));
-    } catch (error) {
-        console.error("Amenities scraping error:", error);
-        throw error;
+        // Find all lists
+        const lists = await driver.findElements(By.css('ul[role="list"]'));
+        const amenities: string[] = [];
+
+        // For each list, find all list items
+        for (const list of lists) {
+            const items = await list.findElements(By.css("li"));
+            for (const item of items) {
+                const text = await item.getText();
+                if (text && !text.includes("Unavailable:") && !text.includes("Show all")) {
+                    amenities.push(text.trim());
+                }
+            }
+        }
+
+        return [...new Set(amenities)]; // Remove duplicates
+    } finally {
+        await driver.quit();
     }
 }
 
@@ -188,17 +200,11 @@ export async function getPhotos(url: string): Promise<string[]> {
 }
 
 export async function scrape(url: string): Promise<ScrapedData> {
-    const driver = await getDriver();
-    const mainText = await getMainText(url);
-    let reviews: string[] = [];
-    let amenities: string[] = [];
-    let photos: string[] = [];
-
-    if (url.includes("airbnb.com/rooms/")) {
-        reviews = await getReviews(url);
-        amenities = await getAmenities(url);
-        photos = await getPhotos(url);
+    if (!url.includes("airbnb.com/rooms/")) {
+        return { main_text: await getMainText(url) };
     }
+
+    const [mainText, reviews, amenities, photos] = await Promise.all([getMainText(url), getReviews(url), getAmenities(url), getPhotos(url)]);
 
     return { main_text: mainText, reviews, amenities, photos };
 }

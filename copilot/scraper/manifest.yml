@@ -18,7 +18,7 @@ http:
     unhealthy_threshold: 5
     interval: 10s
     timeout: 5s
-    grace_period: 60s
+    grace_period: 120s
   public:
     certificates:
       - arn:aws:acm:us-east-1:422220778159:certificate/d1259492-082d-4ad9-b641-b754caef46b5
@@ -29,8 +29,8 @@ image:
     context: .
   port: 3100
 
-cpu: 512 # Number of CPU units for the task.
-memory: 1024 # Amount of memory in MiB used by the task.
+cpu: 2048 # 2 vCPU
+memory: 8192 # 8 GB RAM
 platform: linux/arm64 # See https://aws.github.io/copilot-cli/docs/manifest/lb-web-service/#platform
 count: 1 # Number of tasks that should be running in your service.
 exec: true # Enable running commands in your container.
@@ -59,8 +59,8 @@ variables: # Pass environment variables as key value pairs.
 environments:
   production:
     count: 1
-    cpu: 1024
-    memory: 2048
+    cpu: 4096 # 4 vCPU for production
+    memory: 16384 # 16 GB RAM for production
     http:
       alias:
         - name: "scraper.amastay.ai"
