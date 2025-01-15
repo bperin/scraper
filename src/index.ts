@@ -26,7 +26,6 @@ const limiter = rateLimit({
 });
 
 // Apply rate limiting to all requests
-app.use(limiter);
 
 // Scraping Endpoint
 app.get("/scrape", async (req: Request, res: Response) => {
