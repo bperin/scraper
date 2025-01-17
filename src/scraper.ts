@@ -69,7 +69,7 @@ export async function getMainText(url: string): Promise<string> {
                 const elementsToRemove = modalElement.querySelectorAll('button, [role="button"]');
                 elementsToRemove.forEach((el) => el.remove());
 
-                return modalElement.innerText.trim().replace(/\s+/g, " ");
+                return (modalElement as HTMLElement).innerText.trim().replace(/\s+/g, " ");
             });
 
             if (modalText) {
