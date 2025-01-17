@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import compression from "compression";
 import chrome, { ServiceBuilder } from "selenium-webdriver/chrome";
 import { Builder } from "selenium-webdriver";
+import { Semaphore } from "async-mutex";
 
 dotenv.config();
 
@@ -26,6 +27,10 @@ const limiter = rateLimit({
 });
 
 // Apply rate limiting to all requests
+// app.use(limiter);
+
+// Create a semaphore to limit concurrent scraping to 3 at a time
+// const scrapeSemaphore = new Semaphore(3);
 
 // Scraping Endpoint
 app.get("/scrape", async (req: Request, res: Response) => {
@@ -42,10 +47,23 @@ app.get("/scrape", async (req: Request, res: Response) => {
     }
 
     try {
-        const data = await scrape(url);
-        res.json(data);
+        // Acquire semaphore before scraping
+        // const [_, release] = await scrapeSemaphore.acquire();
+        try {
+            const data = await scrape(url);
+            res.json(data);
+        } finally {
+            // release();
+        }
     } catch (error: any) {
-        res.status(500).json({ error: "Scraping failed", details: error.message });
+        if (error.message.includes("TimeoutError") || error.message.includes("too many requests")) {
+            res.status(503).json({
+                error: "Service temporarily unavailable",
+                details: "Server is busy, please try again later",
+            });
+        } else {
+            res.status(500).json({ error: "Scraping failed", details: error.message });
+        }
     }
 });
 

@@ -29,17 +29,14 @@ async function getDriver() {
 
 export async function getMainText(url: string): Promise<string> {
     const driver = await getDriver();
+    let allText = [];
 
     try {
+        // First get main page content
         await driver.get(url);
-
-        // Wait for main content to load - look for description section which indicates content is ready
-        await driver.wait(until.elementLocated(By.css('div[data-section-id="DESCRIPTION_DEFAULT"], div[itemprop="description"]')), 10000);
-
-        // Give a little extra time for dynamic content
         await driver.sleep(2000);
 
-        const textContent: string = await driver.executeScript(() => {
+        const mainText = await driver.executeScript(() => {
             // Remove navigation, header, footer and other non-content elements
             const elementsToRemove = document.querySelectorAll(`
                 script, style, noscript,
@@ -54,10 +51,40 @@ export async function getMainText(url: string): Promise<string> {
             return text.trim().replace(/\s+/g, " ");
         });
 
-        return textContent;
+        allText.push(mainText);
+
+        // Then get modal content
+        await driver.get(`${url}?modal=DESCRIPTION`);
+        await driver.sleep(2000);
+
+        try {
+            // Wait for "About this space" modal
+            await driver.wait(until.elementLocated(By.css('div[role="dialog"][aria-label="About this space"]')), 10000);
+
+            const modalText = await driver.executeScript(() => {
+                const modalElement = document.querySelector('div[role="dialog"][aria-label="About this space"]');
+                if (!modalElement) return "";
+
+                // Remove any non-content elements from modal
+                const elementsToRemove = modalElement.querySelectorAll('button, [role="button"]');
+                elementsToRemove.forEach((el) => el.remove());
+
+                return modalElement.innerText.trim().replace(/\s+/g, " ");
+            });
+
+            if (modalText) {
+                allText.push(modalText);
+            }
+        } catch (modalError) {
+            console.log("About this space modal not found, continuing with main content only");
+        }
+
+        return allText.join("\n\n");
     } catch (error) {
         console.error("Main text scraping error:", error);
         throw error;
+    } finally {
+        await driver.quit();
     }
 }
 
