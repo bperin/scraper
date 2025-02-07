@@ -43,25 +43,28 @@ app.get("/scrape", async (req: Request, res: Response) => {
     const url = req.query.url as string;
     const apiKey = req.headers["authorization"];
 
+    console.log(`[${new Date().toISOString()}] Received scrape request for URL: ${url}`);
+
     // Basic API Key Authentication
     if (apiKey !== `Bearer ${SCRAPER_API_KEY}`) {
+        console.log(`[${new Date().toISOString()}] Authentication failed`);
+        console.log(`Received: ${apiKey}`); // Add this to debug
+        console.log(`Expected: Bearer ${SCRAPER_API_KEY}`); // Add this to debug
         return res.status(401).send("Unauthorized");
     }
 
     if (!url) {
+        console.log(`[${new Date().toISOString()}] No URL provided`);
         return res.status(400).send("URL parameter is required");
     }
 
     try {
-        // Acquire semaphore before scraping
-        // const [_, release] = await scrapeSemaphore.acquire();
-        try {
-            const data = await scrape(url);
-            res.json(data);
-        } finally {
-            // release();
-        }
+        console.log(`[${new Date().toISOString()}] Starting scrape for URL: ${url}`);
+        const data = await scrape(url);
+        console.log(`[${new Date().toISOString()}] Scrape completed successfully`);
+        res.json(data);
     } catch (error: any) {
+        console.error(`[${new Date().toISOString()}] Scrape error:`, error);
         if (error.message.includes("TimeoutError") || error.message.includes("too many requests")) {
             res.status(503).json({
                 error: "Service temporarily unavailable",
