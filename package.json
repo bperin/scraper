@@ -5,7 +5,7 @@
     "main": "dist/index.js",
     "scripts": {
         "build": "tsc",
-        "start": "node dist/index.js",
+        "start": "ts-node src/index.ts",
         "dev": "nodemon src/index.ts",
         "deploy:dev": "copilot svc deploy --name scraper --env develop --force",
         "deploy:staging": "copilot svc deploy --name scraper --env staging --force",

@@ -11,8 +11,14 @@ import { Semaphore } from "async-mutex";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3100;
-const SCRAPER_API_KEY = "WKkXEvIK2qyFMT0yAA9kqoStleFBEWvK";
+const PORT = process.env.PORT || 5002; // Default to 5002 if not set
+const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY || "WKkXEvIK2qyFMT0yAA9kqoStleFBEWvK";
+
+// Add logging middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Apply compression middleware
 app.use(compression());
@@ -103,5 +109,8 @@ app.get("/health", async (req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Web scraper API running on port ${PORT}`);
+    console.log(`[${new Date().toISOString()}] Web scraper API starting...`);
+    console.log(`[${new Date().toISOString()}] Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`[${new Date().toISOString()}] Port: ${PORT}`);
+    console.log(`[${new Date().toISOString()}] Server is running at http://localhost:${PORT}`);
 });

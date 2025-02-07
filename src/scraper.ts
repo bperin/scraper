@@ -233,5 +233,8 @@ export async function scrape(url: string): Promise<ScrapedData> {
 
     const [mainText, reviews, amenities, photos] = await Promise.all([getMainText(url), getReviews(url), getAmenities(url), getPhotos(url)]);
 
+    console.log(`[DEBUG] Found ${photos?.length || 0} photos`);
+    console.log(`[DEBUG] First few photos: ${photos?.slice(0, 3)}`);
+
     return { main_text: mainText, reviews, amenities, photos };
 }
