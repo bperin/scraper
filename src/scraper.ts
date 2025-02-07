@@ -12,18 +12,20 @@ interface ScrapedData {
 // Create a function to get configured WebDriver
 async function getDriver() {
     const options = new chrome.Options();
-    // Always add headless and other required flags
+    // Add required flags for headless mode
     options.addArguments(
-        "--headless=new", // Use new headless mode
+        "--headless=new",
         "--no-sandbox",
         "--disable-gpu",
-        "--disable-dev-shm-usage"
+        "--disable-dev-shm-usage",
+        "--window-size=1920,1080", // Set a good window size
+        "--disable-blink-features=AutomationControlled", // Try to avoid detection
+        "--start-maximized"
     );
     // Add any additional flags from env
     options.addArguments(...(process.env.CHROME_FLAGS || "").split(" ").filter(Boolean));
 
     const service = new ServiceBuilder(process.env.CHROMEDRIVER_PATH || "");
-
     return new Builder().forBrowser("chrome").setChromeOptions(options).setChromeService(service).build();
 }
 
@@ -92,63 +94,64 @@ export async function getReviews(url: string): Promise<string[]> {
     const driver = await getDriver();
 
     try {
-        // Go to the reviews page without modal
+        // Go to the reviews page
         await driver.get(`${url}/reviews`);
+        await driver.sleep(2000); // Wait for page load
 
-        // Wait for reviews container with multiple possible selectors
-        await driver.wait(
-            until.elementLocated(
+        try {
+            // Wait for reviews container with increased timeout
+            await driver.wait(
+                until.elementLocated(
+                    By.css(`
+                    div[data-section-id="reviews-default"],
+                    div[data-section-id="REVIEWS_DEFAULT"],
+                    section[aria-label*="Reviews"],
+                    div[role="dialog"] div[data-review-id]
+                `)
+                ),
+                20000 // Increase timeout to 20 seconds
+            );
+
+            // Scroll logic remains the same
+            let previousHeight = 0;
+            let currentHeight = 0;
+            let attempts = 0;
+            const maxAttempts = 50;
+
+            do {
+                previousHeight = await driver.executeScript("return document.documentElement.scrollHeight");
+                await driver.executeScript("window.scrollTo(0, document.documentElement.scrollHeight)");
+                await driver.sleep(1000);
+                currentHeight = await driver.executeScript("return document.documentElement.scrollHeight");
+                attempts++;
+            } while (currentHeight > previousHeight && attempts < maxAttempts);
+
+            // Try multiple selectors for review elements
+            const reviewElements = await driver.findElements(
                 By.css(`
-            div[data-section-id="reviews-default"],
-            div[data-section-id="REVIEWS_DEFAULT"],
-            section[aria-label*="Reviews"],
-            div[role="dialog"] div[data-review-id]
-        `)
-            ),
-            10000
-        );
+                div[data-review-id] div[style*="line-height"],
+                div[data-review-id] span[dir="ltr"],
+                div[itemprop="review"] div[itemprop="text"],
+                div[role="dialog"] div[data-review-id] span
+            `)
+            );
 
-        await driver.sleep(2000);
+            const reviews = await Promise.all(
+                reviewElements.map(async (el) => {
+                    try {
+                        const text = await el.getText();
+                        return text.trim();
+                    } catch (e) {
+                        return "";
+                    }
+                })
+            );
 
-        // Scroll logic remains the same
-        let previousHeight = 0;
-        let currentHeight = 0;
-        let attempts = 0;
-        const maxAttempts = 50;
-
-        do {
-            previousHeight = await driver.executeScript("return document.documentElement.scrollHeight");
-            await driver.executeScript("window.scrollTo(0, document.documentElement.scrollHeight)");
-            await driver.sleep(1000);
-            currentHeight = await driver.executeScript("return document.documentElement.scrollHeight");
-            attempts++;
-        } while (currentHeight > previousHeight && attempts < maxAttempts);
-
-        // Try multiple selectors for review elements
-        const reviewElements = await driver.findElements(
-            By.css(`
-            div[data-review-id] div[style*="line-height"],
-            div[data-review-id] span[dir="ltr"],
-            div[itemprop="review"] div[itemprop="text"],
-            div[role="dialog"] div[data-review-id] span
-        `)
-        );
-
-        const reviews = await Promise.all(
-            reviewElements.map(async (el) => {
-                try {
-                    const text = await el.getText();
-                    return text.trim();
-                } catch (e) {
-                    return "";
-                }
-            })
-        );
-
-        return [...new Set(reviews.filter((review) => review.length > 0))];
-    } catch (error) {
-        console.error("Reviews scraping error:", error);
-        throw error;
+            return [...new Set(reviews.filter((review) => review.length > 0))];
+        } catch (error) {
+            console.log("Reviews section not found, continuing with empty reviews");
+            return []; // Return empty array if reviews section not found
+        }
     } finally {
         await driver.quit();
     }
@@ -186,43 +189,73 @@ export async function getPhotos(url: string): Promise<string[]> {
     const driver = await getDriver();
 
     try {
-        const modalUrl = `${url}?modal=PHOTO_TOUR_SCROLLABLE`;
-        await driver.get(modalUrl);
+        // First go to main page to find the "Show all photos" button
+        await driver.get(url);
         await driver.sleep(2000);
 
-        // Wait for photos to load in modal
-        await driver.wait(until.elementLocated(By.css("picture source[srcset]")), 10000);
-        await driver.sleep(1000);
+        try {
+            // Try to click "Show all photos" button if it exists
+            const showPhotosButton = await driver.findElement(By.css('[data-testid="photos-button"], [aria-label*="Show all photos"], button[data-plugin-in-point-id="PHOTO_TOUR_SCROLLABLE"]'));
+            await showPhotosButton.click();
+            await driver.sleep(2000);
+        } catch (error) {
+            console.log("Show photos button not found, trying direct photo modal");
+            // If button not found, try direct modal URL
+            await driver.get(`${url}?modal=PHOTO_TOUR_SCROLLABLE`);
+            await driver.sleep(2000);
+        }
+
+        // Wait for photos to load
+        await driver.wait(until.elementLocated(By.css("picture source[srcset], img[data-original]")), 20000);
+        await driver.sleep(2000);
 
         // Scroll to load all photos
         let previousHeight = 0;
-        let currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number;
+        let currentHeight = await driver.executeScript("return document.body.scrollHeight");
         let attempts = 0;
         const maxAttempts = 20;
-
         while (previousHeight !== currentHeight && attempts < maxAttempts) {
-            previousHeight = currentHeight;
+            previousHeight = currentHeight as number; // Cast to number to fix type issue
             await driver.executeScript("window.scrollTo(0, document.body.scrollHeight)");
             await driver.sleep(2000);
-            currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number;
+            currentHeight = (await driver.executeScript("return document.body.scrollHeight")) as number; // Cast to number to fix type issue
             attempts++;
         }
 
         // Get all source elements and extract original image URLs
-        const sourceElements = await driver.findElements(By.css("picture source[srcset]"));
-        const photoUrls = await Promise.all(
-            sourceElements.map(async (source) => {
-                const srcset = await source.getAttribute("srcset");
-                // Match the full URL pattern including /prohost-api/Hosting-{id}/original/
-                const match = srcset.match(/https:\/\/.*?\/prohost-api\/Hosting-.*?\/original\/.*?\.jpeg/);
-                return match ? match[0] : null;
-            })
-        );
+        const photoUrls = new Set<string>();
 
-        return photoUrls.filter((url): url is string => !!url);
+        // Try multiple selectors for images
+        const sourceElements = await driver.findElements(By.css('picture source[srcset], img[data-original], img[data-testid*="photo"], div[data-testid*="photo"] img'));
+
+        for (const source of sourceElements) {
+            try {
+                const srcset = await source.getAttribute("srcset");
+                const src = await source.getAttribute("src");
+                const dataOriginal = await source.getAttribute("data-original");
+
+                // Try to find the highest quality image URL
+                if (srcset) {
+                    const match = srcset.match(/https:\/\/.*?\/prohost-api\/Hosting-.*?\/original\/.*?\.jpeg/);
+                    if (match) photoUrls.add(match[0]);
+                }
+                if (src && src.includes("/original/")) {
+                    photoUrls.add(src);
+                }
+                if (dataOriginal) {
+                    photoUrls.add(dataOriginal);
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+
+        return Array.from(photoUrls);
     } catch (error) {
         console.error("Photo scraping error:", error);
-        throw error;
+        return []; // Return empty array instead of throwing
+    } finally {
+        await driver.quit();
     }
 }
 
